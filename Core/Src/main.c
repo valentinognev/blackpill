@@ -88,7 +88,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  //Init__vMPU_6050();
+  Init__vMPU_6050();
   test = GetData__stMPU_6050();
   /* USER CODE END 2 */
 
