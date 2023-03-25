@@ -88,15 +88,15 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  Init__vMPU_6050();
-  test = GetData__stMPU_6050();
+  Init__vMPU_6500();
+  test = GetData__stMPU_6500();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  test = GetData__stMPU_6050();
+	  test = GetData__stMPU_6500();
 	  LL_mDelay(100);
     /* USER CODE END WHILE */
 
