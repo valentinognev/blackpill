@@ -26,7 +26,7 @@
 #define mpu_6500_zg_offset_h 0x17
 #define mpu_6500_zg_offset_l 0x18
 
-#define mpu_6500_smprt_div 0x19
+#define mpu_6500_smplrt_div 0x19
 #define mpu_6500_config 0x1A
 #define mpu_6500_gyro_config 0x1B
 #define mpu_6500_accel_config 0x1C

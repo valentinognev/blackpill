@@ -157,10 +157,10 @@ void Init__vMPU_6500()
 		printf("\r\n MPU chip 2 reset failed !\r\n");
 	}
 	_delay_ms(1000);
-// sample divide rate  sample rate = ex 8kHz / (1+divide rate)  =  8000/110 = 72 Hz
-	I2C__vWriteSingleByteBuffer(mpu_6500_address, mpu_6500_smprt_div,80);
+	// Set DATA RATE of 1KHz by writing SMPLRT_DIV register
+	I2C__vWriteSingleByteBuffer(mpu_6500_address, mpu_6500_smplrt_div,0x07);
 	_delay_ms(1000);
-	I2C__vReadBuffer(mpu_6500_address,mpu_6500_smprt_div,&dest,1);
+	I2C__vReadBuffer(mpu_6500_address,mpu_6500_smplrt_div,&dest,1);
 	if ((dest == init_byte_104))
 	{
 
@@ -172,8 +172,8 @@ void Init__vMPU_6500()
 	}
 	_delay_ms(1000);
 
-// digital low pass filter
-	I2C__vWriteSingleByteBuffer(mpu_6500_address, mpu_6500_config,0x00);
+// disable FSYNC, enable digital low pass filter (fs=1khz, bandwidth acc=94Hz, gyro=98Hz)
+	I2C__vWriteSingleByteBuffer(mpu_6500_address, mpu_6500_config,0x02);
 	_delay_ms(1000);
 	I2C__vReadBuffer(mpu_6500_address,mpu_6500_config,&dest,1);
 	if (dest == 0x01)
