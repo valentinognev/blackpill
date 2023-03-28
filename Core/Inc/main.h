@@ -41,6 +41,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f4xx_ll_i2c.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -62,7 +63,12 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+#define  micros  HAL_GetTick
+#define I2C_BUFFER_LENGTH 128
+#define I2CDEVLIB_WIRE_BUFFER_LENGTH I2C_BUFFER_LENGTH
+#define PI M_PI
+#define map(x, in_min, in_max, out_min, out_max) (long)((x - in_min) * (out_max - out_min + 1) / (in_max - in_min + 1) + out_min)
+// #define PI 3.14159265358979323846
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

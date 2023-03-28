@@ -190,3 +190,11 @@ Debug/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_utils.d
 Debug/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_utils.o
 Debug/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_utils.su
 Debug/Drivers/STM32F4xx_HAL_Driver/Src/subdir.mk
+build/I2Cdev.d
+build/Kalman.cpp
+build/Kalman.d
+build/Kalman.o
+build/main.cpp
+build/MPU6050.cpp
+build/MPU6050.d
+build/MPU6050.o

@@ -36,8 +36,6 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
-Core/Src/imu.c \
-Core/Src/main.c \
 Core/Src/stm32f4xx_hal_msp.c \
 Core/Src/stm32f4xx_it.c \
 Core/Src/syscalls.c \
@@ -67,6 +65,9 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_utils.c
 
 
 CPP_SOURCES = \
+Core/Src/Kalman.cpp \
+Core/Src/MPU6050.cpp \
+Core/Src/main.cpp
 
 
 # ASM sources
@@ -213,7 +214,7 @@ $(BUILD_DIR)/%.o: %.s STM32Make.make | $(BUILD_DIR)
 	$(AS) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) STM32Make.make
-	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
 	$(SZ) $@
 
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)

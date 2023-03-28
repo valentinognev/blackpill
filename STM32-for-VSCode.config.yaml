@@ -8,7 +8,7 @@
 # The project name
 target: blackpill
 # Can be C or C++
-language: C
+language: C++
 
 optimization: Og
 
@@ -92,7 +92,9 @@ includeDirectories:
 # these should be escaped with a: \ or the name should be in double quotes e.g. "HARDWARE_DRIVER*.c"
 sourceFiles:  
   - startup_stm32f411xe.s
-  - Core/Src/main.c
+  - Core/Src/main.cpp
+  - Core/Src/MPU6050.cpp
+  - Core/Src/Kalman.cpp
   - Core/Src/stm32f4xx_it.c
   - Core/Src/stm32f4xx_hal_msp.c
   - Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_gpio.c
