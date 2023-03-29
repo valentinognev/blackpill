@@ -309,16 +309,21 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
 }
 
 
-void I2Cdev::SelectRegister(uint8_t dev, uint8_t reg){
-	i2c_cmd_handle_t cmd;
+void I2Cdev::SelectRegister(uint8_t dev, uint8_t reg)
+{
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(dev << 1), &reg, 1, i2c_timeout) != HAL_OK)
+    {
+        /*
+         * Error_Handler() function is called when Timeout error occurs.
+         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
+         * Master restarts communication
+         */
 
-	cmd = i2c_cmd_link_create();
-	ESP_ERROR_CHECK(i2c_master_start(cmd));
-	ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, 1));
-	ESP_ERROR_CHECK(i2c_master_write_byte(cmd, reg, 1));
-	ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	i2c_cmd_link_delete(cmd);
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
 }
 
 /** write a single bit in an 8-bit device register.
@@ -414,17 +419,40 @@ bool I2Cdev::writeBitsW(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint
  * @param data New byte value to write
  * @return Status of operation (true = success)
  */
-bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void *wireObj) {
-	i2c_cmd_handle_t cmd;
+bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void *wireObj) 
+{
+    uint8_t aTxBuffer[2];
 
-	cmd = i2c_cmd_link_create();
-	ESP_ERROR_CHECK(i2c_master_start(cmd));
-	ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
-	ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
-	ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data, 1));
-	ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	i2c_cmd_link_delete(cmd);
+    aTxBuffer[0] = regAddr;
+    aTxBuffer[1] = data;
+
+    /* -> Start the transmission process */
+    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1), aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
+    {
+        /*
+         * Error_Handler() function is called when Timeout error occurs.
+         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
+         * Master restarts communication
+         */
+
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
+
+    /* -> Wait for the end of the transfer */
+    /* Before starting a new communication transfer, you need to check the current
+     * state of the peripheral; if it’s busy you need to wait for the end of current
+     * transfer before starting a new one.
+     * For simplicity reasons, this example is just waiting till the end of the
+     * transfer, but application may perform other tasks while transfer operation
+     * is ongoing.
+     */
+    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
+    {
+    }
 
 	return true;
 }
@@ -436,8 +464,28 @@ bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void *wir
  * @param data Array of bytes to write
  * @return Status of operation (true = success)
  */
-bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, void *wireObj){
-	i2c_cmd_handle_t cmd;
+bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, void *wireObj)
+{
+    aTxBuffer[0] = regAddr;
+    aTxBuffer[1] = data;
+
+    /* -> Start the transmission process */
+    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1), aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
+    {
+        /*
+         * Error_Handler() function is called when Timeout error occurs.
+         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
+         * Master restarts communication
+         */
+
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
+
+    i2c_cmd_handle_t cmd;
 
 	cmd = i2c_cmd_link_create();
 	ESP_ERROR_CHECK(i2c_master_start(cmd));
