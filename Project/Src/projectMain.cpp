@@ -10,6 +10,7 @@
 #include "math.h"
 #include "parameter.h"
 
+#include "usb_device.h"
 
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead
 #define RAD_TO_DEG (180.0 / M_PI)
@@ -66,35 +67,40 @@ void mpu6050(){
 
     char bufstr[100];
 	// Get the sample rate
-	sprintf(bufstr, "getRate()=%d", mpu.getRate());
-    SWO_PrintDefaultN(bufstr,strlen(bufstr));
+    volatile float rate = mpu.getRate();
+    sprintf(bufstr, "getRate()=%f", rate);
+    CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr));    //SWO_PrintDefaultN(bufstr,strlen(bufstr));
 
-	// Set the sample rate to 8kHz
+    // Set the sample rate to 8kHz
 	if (mpu.getRate() != 0) mpu.setRate(0);
 
 	// Get FSYNC configuration value
-	sprintf(bufstr, "getExternalFrameSync()=%d", mpu.getExternalFrameSync());
-    SWO_PrintDefaultN(bufstr,strlen(bufstr));
-    
+    volatile uint8_t fsync = mpu.getExternalFrameSync();
+    sprintf(bufstr, "getExternalFrameSync()=%d", fsync);
+    CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr));    //SWO_PrintDefaultN(bufstr,strlen(bufstr));
+
     // Disable FSYNC and set 260 Hz Acc filtering, 256 Hz Gyro filtering
 	if (mpu.getExternalFrameSync() != 0) mpu.setExternalFrameSync(0);
 
 	// Set Digital Low Pass Filter
-	sprintf(bufstr, "getDLPFMode()=%d", mpu.getDLPFMode());
-    SWO_PrintDefaultN(bufstr,strlen(bufstr));
-	if (mpu.getDLPFMode() != 6) mpu.setDLPFMode(6);
+    volatile int8_t dlpf = mpu.getDLPFMode();
+    sprintf(bufstr, "getDLPFMode()=%d", dlpf);
+    CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr));    //SWO_PrintDefaultN(bufstr,strlen(bufstr));
+    if (mpu.getDLPFMode() != 6)        mpu.setDLPFMode(6);
 
-	// Get Accelerometer Scale Range
-	sprintf(bufstr, "getFullScaleAccelRange()=%d", mpu.getFullScaleAccelRange());
-    SWO_PrintDefaultN(bufstr,strlen(bufstr));
-	// Set Accelerometer Full Scale Range to ±2g
-	if (mpu.getFullScaleAccelRange() != 0) mpu.setFullScaleAccelRange(0);
+    // Get Accelerometer Scale Range
+    volatile uint8_t ascale = mpu.getFullScaleAccelRange();
+    sprintf(bufstr, "getFullScaleAccelRange()=%d", ascale);
+    CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr));    //SWO_PrintDefaultN(bufstr,strlen(bufstr));
+    // Set Accelerometer Full Scale Range to ±2g
+    if (mpu.getFullScaleAccelRange() != 0) mpu.setFullScaleAccelRange(0);
 
 	// Get Gyro Scale Range
-	sprintf(bufstr, "getFullScaleGyroRange()=%d", mpu.getFullScaleGyroRange());
-    SWO_PrintDefaultN(bufstr,strlen(bufstr));
-	// Set Gyro Full Scale Range to ±250deg/s
-	if (mpu.getFullScaleGyroRange() != 0) mpu.setFullScaleGyroRange(0);
+    volatile uint8_t gscale = mpu.getFullScaleGyroRange();
+    sprintf(bufstr, "getFullScaleGyroRange()=%d", gscale);
+    CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr)); // SWO_PrintDefaultN(bufstr,strlen(bufstr));
+    // Set Gyro Full Scale Range to ±250deg/s
+    if (mpu.getFullScaleGyroRange() != 0) mpu.setFullScaleGyroRange(0);
 
 
 	/* Set Kalman and gyro starting angle */
@@ -202,19 +208,20 @@ void mpu6050(){
 			float _roll = roll-initial_roll;
 			float _pitch = pitch-initial_pitch;
 			sprintf(bufstr, "roll:%f pitch=%f", _roll, _pitch);
-            SWO_PrintDefaultN(bufstr,strlen(bufstr));
+            CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr)); // 
+			SWO_PrintDefaultN(bufstr,strlen(bufstr));
 
-			POSE_t pose;
+            POSE_t pose;
 			pose.roll = _roll;
 			pose.pitch = _pitch;
 			pose.yaw = 0.0;
 
-			HAL_Delay(1);
+			HAL_Delay(1000);
 			elasped = 0;
 		}
 	
 		elasped++;
-		HAL_Delay(1);
+		HAL_Delay(1000);
 	} // end while
 
 }
