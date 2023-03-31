@@ -65,9 +65,7 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_utils.c
 
 
 CPP_SOURCES = \
-Core/Src/Kalman.cpp \
-Core/Src/MPU6050.cpp \
-Core/Src/main.cpp
+build/main.cpp
 
 
 # ASM sources
