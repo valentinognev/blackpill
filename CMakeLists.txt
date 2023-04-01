@@ -113,6 +113,7 @@ target_link_options(${EXECUTABLE} PRIVATE
     -lc
     -lm
     -lstdc++
+    -u _printf_float
     -Wl,--end-group
     -Wl,--print-memory-usage)
 ###############################################################################
