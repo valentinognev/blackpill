@@ -66,10 +66,6 @@ class I2Cdev {
         static bool writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16_t *data, void *wireObj=0);
 
         static uint16_t readTimeout;
-
-    //private:
-        static void SelectRegister(uint8_t dev, uint8_t reg);
-        //static I2C_TransferReturn_TypeDef transfer(I2C_TransferSeq_TypeDef *seq, uint16_t timeout=I2Cdev::readTimeout);
 };
 
 #endif /* _I2CDEV_H_ */

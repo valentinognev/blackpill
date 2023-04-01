@@ -34,6 +34,8 @@ THE SOFTWARE.
 #include "main.h"
 
 #define I2C_NUM I2C_NUM_0
+#define I2C_MASTER_WRITE (0)
+#define I2C_MASTER_READ (1)
 
 #undef ESP_ERROR_CHECK
 #define ESP_ERROR_CHECK(x)   do { esp_err_t rc = (x); if (rc != ESP_OK) { ESP_LOGE("err", "esp_err_t = %d", rc); /*assert(0 && #x);*/} } while(0);
@@ -41,104 +43,6 @@ THE SOFTWARE.
 extern I2C_HandleTypeDef hi2c1;
 const uint32_t i2c_timeout = 100;
 
-
-void I2C__vWriteBuffer(uint8_t I2c_add, uint8_t *aTxBuffer, uint16_t txbuffsz)
-{
-    /* -> Start the transmission process */
-    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(I2c_add << 1), (uint8_t *)aTxBuffer, txbuffsz, i2c_timeout) != HAL_OK)
-    {
-        /*
-         * Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
-    }
-
-    /* -> Wait for the end of the transfer */
-    /* Before starting a new communication transfer, you need to check the current
-     * state of the peripheral; if it’s busy you need to wait for the end of current
-     * transfer before starting a new one.
-     * For simplicity reasons, this example is just waiting till the end of the
-     * transfer, but application may perform other tasks while transfer operation
-     * is ongoing.
-     */
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
-    {
-    }
-}
-
-void I2C__vReadBuffer(uint8_t I2c_add, uint8_t RegAddr, uint8_t *aRxBuffer, uint8_t rxbuffsz)
-{
-    /* -> Lets ask for register's address */
-    I2C__vWriteBuffer(I2c_add, &RegAddr, 1);
-
-    /* -> Put I2C peripheral in reception process */
-    while (HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(I2c_add << 1), aRxBuffer, (uint16_t)rxbuffsz, i2c_timeout) != HAL_OK)
-    {
-        /* Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C read !!!");
-        }
-    }
-
-    /* -> Wait for the end of the transfer */
-    /* Before starting a new communication transfer, you need to check the current
-     * state of the peripheral; if it’s busy you need to wait for the end of current
-     * transfer before starting a new one.
-     * For simplicity reasons, this example is just waiting till the end of the
-     * transfer, but application may perform other tasks while transfer operation
-     * is ongoing.
-     **/
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
-    {
-    }
-}
-
-void I2C__vWriteSingleByteBuffer(uint8_t I2c_add, uint8_t regaddress, uint8_t regValue)
-{
-    uint8_t aTxBuffer[2];
-
-    aTxBuffer[0] = regaddress;
-    aTxBuffer[1] = regValue;
-
-    /* -> Start the transmission process */
-    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(I2c_add << 1), aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
-    {
-        /*
-         * Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
-    }
-
-    /* -> Wait for the end of the transfer */
-    /* Before starting a new communication transfer, you need to check the current
-     * state of the peripheral; if it’s busy you need to wait for the end of current
-     * transfer before starting a new one.
-     * For simplicity reasons, this example is just waiting till the end of the
-     * transfer, but application may perform other tasks while transfer operation
-     * is ongoing.
-     */
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
-    {
-    }
-}
 /** Default constructor.
  */
 I2Cdev::I2Cdev() {
@@ -260,14 +164,19 @@ int8_t I2Cdev::readByte(uint8_t devAddr, uint8_t regAddr, uint8_t *data, uint16_
  * @param timeout Optional read timeout in milliseconds (0 to disable, leave off to use default class value in I2Cdev::readTimeout)
  * @return I2C_TransferReturn_TypeDef http://downloads.energymicro.com/documentation/doxygen/group__I2C.html
  */
-int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout, void *wireObj) {
-	SelectRegister(devAddr, regAddr);
-
-   /* -> Lets ask for register's address */
-    I2C__vWriteBuffer(devAddr, &regAddr, 1);
-
-    /* -> Put I2C peripheral in reception process */
-    while (HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(devAddr << 1), data, (uint16_t)length, timeout) != HAL_OK)
+int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout, void *wireObj) 
+{
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, &regAddr, 1, i2c_timeout) != HAL_OK)
+    {
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
+    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
+    {
+    }
+    while (HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_READ, data, (uint16_t)length, timeout) != HAL_OK)
     {
         /* Error_Handler() function is called when Timeout error occurs.
          * When Acknowledge failure occurs (Slave don't acknowledge it's address)
@@ -278,19 +187,100 @@ int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8
             Error_Handler(); //"Error in I2C read !!!");
         }
     }
-	// cmd = i2c_cmd_link_create();
-	// ESP_ERROR_CHECK(i2c_master_start(cmd));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_READ, 1));
+    // cmd = i2c_cmd_link_create();
+    // ESP_ERROR_CHECK(i2c_master_start(cmd));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
+    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
+    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
+    // i2c_cmd_link_delete(cmd);
 
-	// if(length>1)
-	// 	ESP_ERROR_CHECK(i2c_master_read(cmd, data, length-1, I2C_MASTER_ACK));
+    // cmd = i2c_cmd_link_create();
+    // ESP_ERROR_CHECK(i2c_master_start(cmd));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_READ, 1));
 
-	// ESP_ERROR_CHECK(i2c_master_read_byte(cmd, data+length-1, I2C_MASTER_NACK));
+    // if (length > 1)
+    //     ESP_ERROR_CHECK(i2c_master_read(cmd, data, length - 1, I2C_MASTER_ACK));
 
-	// ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	// ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	// i2c_cmd_link_delete(cmd);
-	return length;
+    // ESP_ERROR_CHECK(i2c_master_read_byte(cmd, data + length - 1, I2C_MASTER_NACK));
+
+    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
+    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
+    // i2c_cmd_link_delete(cmd);
+    return length;
+}
+
+/** Write single byte to an 8-bit device register.
+ * @param devAddr I2C slave device address
+ * @param regAddr Register address to write to
+ * @param data New byte value to write
+ * @return Status of operation (true = success)
+ */
+bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t byte, void* wireObj)
+{
+    uint8_t aTxBuffer[2]={ regAddr, byte};
+
+    /* -> Start the transmission process */
+    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
+    {
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
+
+    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
+    {
+    }
+    // cmd = i2c_cmd_link_create();
+    // ESP_ERROR_CHECK(i2c_master_start(cmd));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, byte, 1));
+    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
+    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
+    // i2c_cmd_link_delete(cmd);
+
+    return true;
+}
+
+/** Write single byte to an 8-bit device register.
+ * @param devAddr I2C slave device address
+ * @param regAddr Register address to write to
+ * @param length Number of bytes to write
+ * @param data Array of bytes to write
+ * @return Status of operation (true = success)
+ */
+bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t* data, void* wireObj)
+{
+    uint8_t aTxBuffer[100];
+    aTxBuffer[0] = regAddr;
+    for(int i = 0;i<length;i++)
+        aTxBuffer[i+1] = data[i];
+    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, aTxBuffer, length+1, i2c_timeout) != HAL_OK)
+    {
+        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
+        {
+            Error_Handler(); //"Error in I2C write !!!");
+        }
+    }
+
+    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
+    {
+    }
+    // i2c_cmd_handle_t cmd;
+
+    // cmd = i2c_cmd_link_create();
+    // ESP_ERROR_CHECK(i2c_master_start(cmd));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
+    // ESP_ERROR_CHECK(i2c_master_write(cmd, data, length-1, 0));
+    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data[length-1], 1));
+    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
+    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
+    // i2c_cmd_link_delete(cmd);
+    return true;
 }
 
 /** Write single word to a 16-bit device register.
@@ -319,31 +309,6 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
 	    writeBytes(devAddr, _regAddr, 2, data1, wireObj);
     }
 	return true;
-}
-
-
-void I2Cdev::SelectRegister(uint8_t dev, uint8_t reg)
-{
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(dev << 1), &reg, 1, i2c_timeout) != HAL_OK)
-    {
-        /*
-         * Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
-    }
-	// cmd = i2c_cmd_link_create();
-	// ESP_ERROR_CHECK(i2c_master_start(cmd));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, 1));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, reg, 1));
-	// ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	// ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	// i2c_cmd_link_delete(cmd);
 }
 
 /** write a single bit in an 8-bit device register.
@@ -432,90 +397,6 @@ bool I2Cdev::writeBitsW(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint
         return false;
     }
 }
-
-/** Write single byte to an 8-bit device register.
- * @param devAddr I2C slave device address
- * @param regAddr Register address to write to
- * @param data New byte value to write
- * @return Status of operation (true = success)
- */
-bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void *wireObj) 
-{
-    uint8_t aTxBuffer[2];
-
-    aTxBuffer[0] = regAddr;
-    aTxBuffer[1] = data;
-
-    /* -> Start the transmission process */
-    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1), aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
-    {
-        /*
-         * Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
-    }
-
-    /* -> Wait for the end of the transfer */
-    /* Before starting a new communication transfer, you need to check the current
-     * state of the peripheral; if it’s busy you need to wait for the end of current
-     * transfer before starting a new one.
-     * For simplicity reasons, this example is just waiting till the end of the
-     * transfer, but application may perform other tasks while transfer operation
-     * is ongoing.
-     */
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
-    {
-    }
-
-	return true;
-}
-
-/** Write single byte to an 8-bit device register.
- * @param devAddr I2C slave device address
- * @param regAddr Register address to write to
- * @param length Number of bytes to write
- * @param data Array of bytes to write
- * @return Status of operation (true = success)
- */
-bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, void *wireObj)
-{
-    /* -> Start the transmission process */
-    /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1), data, (uint16_t)length, i2c_timeout) != HAL_OK)
-    {
-        /*
-         * Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
-    }
-
-    // i2c_cmd_handle_t cmd;
-
-	// cmd = i2c_cmd_link_create();
-	// ESP_ERROR_CHECK(i2c_master_start(cmd));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
-	// ESP_ERROR_CHECK(i2c_master_write(cmd, data, length-1, 0));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data[length-1], 1));
-	// ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	// ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	// i2c_cmd_link_delete(cmd);
-	return true;
-}
-
 
 /** Read single word from a 16-bit device register.
  * @param devAddr I2C slave device address
