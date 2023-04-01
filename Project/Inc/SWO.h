@@ -13,6 +13,11 @@ extern "C"
     void SWO_PrintDefault(char const* str);
     void SWO_PrintDefaultN(char const* str, size_t const len);
 
+    void USART_PrintChar(char const c, uint8_t const portNumber);
+    void USART_PrintString(char const* s, uint8_t const portNumber);
+    void USART_PrintDefault(char const* str);
+    void USART_PrintDefaultN(char const* str, size_t const len);
+
 #ifdef __cplusplus
 }
 #endif

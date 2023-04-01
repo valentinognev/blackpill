@@ -1,6 +1,8 @@
 #include "SWO.h"
 #include "main.h"
 
+extern UART_HandleTypeDef huart2;
+
 void SWO_PrintChar(char const c, uint8_t const portNumber)
 {
     volatile int timeout;
@@ -47,5 +49,26 @@ void SWO_PrintDefaultN(char const* str, size_t const len)
     for (size_t i = 0; i < len; ++i)
     {
         SWO_PrintChar(str[i], 0);
+    }
+}
+
+
+void USART_PrintChar(char const c, uint8_t const portNumber)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t*)&c, 1, 100);
+}
+void USART_PrintString(char const* s, uint8_t const portNumber)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t*)s, strlen(s), 100);
+}
+void USART_PrintDefault(char const* str)
+{
+    USART_PrintString(str, 0);
+}
+void USART_PrintDefaultN(char const* str, size_t const len)
+{
+    for (size_t i = 0; i < len; ++i)
+    {
+        USART_PrintChar(str[i], 0);
     }
 }

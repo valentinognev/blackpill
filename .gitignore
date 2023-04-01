@@ -336,3 +336,7 @@ build/.cmake/api/v1/reply/target-blackpill-Debug-d3e2d3cc8f57e5798f9e.json
 build/.cmake/api/v1/reply/codemodel-v2-2abf536f8c60d9bb7a37.json
 build/.cmake/api/v1/reply/index-2023-04-01T16-14-33-0158.json
 build/.cmake/api/v1/reply/target-firmware-Debug-cf99225c52790ca2b68a.json
+build/.cmake/api/v1/reply/codemodel-v2-07fc6fa457fb3a444d84.json
+build/.cmake/api/v1/reply/index-2023-04-01T21-33-49-0893.json
+build/.cmake/api/v1/reply/target-blackpill-Debug-8272b61441c345dfef62.json
+build/CMakeFiles/blackpill.dir/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c.obj

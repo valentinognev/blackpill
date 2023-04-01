@@ -166,26 +166,17 @@ int8_t I2Cdev::readByte(uint8_t devAddr, uint8_t regAddr, uint8_t *data, uint16_
  */
 int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout, void *wireObj) 
 {
-    while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, &regAddr, 1, i2c_timeout) != HAL_OK)
+    HAL_StatusTypeDef status = HAL_OK;
+    while ((status = HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, &regAddr, 1, i2c_timeout)) != HAL_OK)
     {
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
+        return 0;
     }
     while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
     {
     }
-    while (HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_READ, data, (uint16_t)length, timeout) != HAL_OK)
+    while ((status = HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_READ, data, (uint16_t)length, timeout)) != HAL_OK)
     {
-        /* Error_Handler() function is called when Timeout error occurs.
-         * When Acknowledge failure occurs (Slave don't acknowledge it's address)
-         * Master restarts communication
-         */
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C read !!!");
-        }
+        return -1;
     }
     // cmd = i2c_cmd_link_create();
     // ESP_ERROR_CHECK(i2c_master_start(cmd));
@@ -224,10 +215,7 @@ bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t byte, void* wir
     /* While the I2C in reception process, user can transmit data through "aTxBuffer" buffer */
     while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, aTxBuffer, (uint16_t)2, i2c_timeout) != HAL_OK)
     {
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
+        return false;
     }
 
     while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
@@ -260,10 +248,7 @@ bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_
         aTxBuffer[i+1] = data[i];
     while (HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)(devAddr << 1) | I2C_MASTER_WRITE, aTxBuffer, length+1, i2c_timeout) != HAL_OK)
     {
-        if (HAL_I2C_GetError(&hi2c1) != HAL_I2C_ERROR_AF)
-        {
-            Error_Handler(); //"Error in I2C write !!!");
-        }
+        return false;
     }
 
     while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
