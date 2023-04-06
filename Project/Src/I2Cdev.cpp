@@ -32,6 +32,8 @@ THE SOFTWARE.
 */
 #include "I2Cdev.h"
 #include "main.h"
+#include <string.h>
+#include "projectMain.h"
 
 #define I2C_NUM I2C_NUM_0
 #define I2C_MASTER_WRITE	(0)
@@ -43,7 +45,210 @@ THE SOFTWARE.
 I2C_TypeDef* i2cdev=I2C1;
 
 const uint32_t i2c_timeout = 100;
+volatile bool i2c_dma_tx_cmplt = false;
+volatile bool i2c_dma_rx_cmplt = false;
+uint8_t deviceAddress = 0;
+uint8_t ubMasterNbDataToTransmit = 0;
+uint8_t ubMasterNbDataToReceive = 0;
+uint8_t ubMasterXferDirection = 0;
 
+bool transfer_i2c(uint8_t devaddr, uint8_t regaddr, uint8_t* tx_data, uint8_t size_of_tx_data, uint16_t timeout)
+{
+    deviceAddress = (devaddr << 1) | I2C_MASTER_WRITE;
+    uint8_t buf[100];
+    buf[0]=regaddr;
+    memcpy(buf+1, tx_data, size_of_tx_data);
+    ubMasterNbDataToTransmit = size_of_tx_data + 2;
+    ubMasterXferDirection = LL_I2C_DIRECTION_WRITE;
+
+    // Activate I2C1 interrupts
+    LL_I2C_EnableIT_EVT(I2C1);
+    LL_I2C_EnableIT_ERR(I2C1);
+    // Activate DMA1 interrupts
+    LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_1);
+    LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_1);
+
+    /* (1) Enable I2C1 **********************************************************/
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_1);
+    LL_I2C_Disable(I2C1);
+    LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, ubMasterNbDataToTransmit);
+    LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_1, (uint32_t)buf, (uint32_t)LL_I2C_DMA_GetRegAddr(I2C1), LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_1));
+
+    LL_I2C_Enable(I2C1);
+    /* (1) Enable DMA transfer **************************************************/
+    LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_1);
+    /* (2) Prepare acknowledge for Master data reception ************************/
+    LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);
+
+    /* (3) Initiate a Start condition to the Slave device ***********************/
+    /* Master Generate Start condition */
+    LL_I2C_GenerateStartCondition(I2C1);
+
+    /* (4) Loop until Start Bit transmitted (SB flag raised) ********************/
+    uint16_t tout = timeout;
+    /* Loop until DMA transfer complete event */
+    while (!i2c_dma_tx_cmplt)
+    {
+       if (LL_SYSTICK_IsActiveCounterFlag() && tout-- == 0)
+            return false;
+    }
+    i2c_dma_tx_cmplt = false;
+
+    /* Generate Stop condition */
+    LL_I2C_GenerateStopCondition(I2C1);
+
+    /* End of Master Process */
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_1);
+    // Deactivate I2C1 interrupts
+    LL_I2C_DisableIT_EVT(I2C1);
+    LL_I2C_DisableIT_ERR(I2C1);
+    LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_1);
+    LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_1);
+    return true;
+}
+
+/**
+ * @brief  This Function handle Master events to perform a transmission then a reception
+ * process
+ * @note   This function is composed in different steps :
+ *         -1- Configure DMA parameters for Command Code transfer.
+ *         -2- Enable DMA transfer.
+ *         -3- Prepare acknowledge for Master data reception.
+ *         -4- Initiate a Start condition to the Slave device.
+ *         -5- Loop until end of transfer completed (DMA TC raised).
+ *         -6- Prepare acknowledge for Master data reception.
+ *         -7- Initiate a ReStart condition to the Slave device.
+ *         -8- Loop until end of transfer completed (DMA TC raised).
+ *         -9- Generate a Stop condition to the Slave device.
+ *         -10- Clear pending flags, Data Command Code are checking into Slave process.
+ * @param  None
+ * @retval None
+ */
+bool receive_i2c(uint8_t devaddr, uint8_t regaddr, uint8_t* rx_data, uint8_t size_of_rx_data, uint16_t timeout)
+{
+    uint8_t buf[100];
+    buf[0] = regaddr;
+    ubMasterNbDataToTransmit = 1;
+    ubMasterNbDataToReceive = size_of_rx_data;
+    ubMasterXferDirection = LL_I2C_DIRECTION_WRITE;
+
+    // Activate I2C1 interrupts
+    LL_I2C_EnableIT_EVT(I2C1);
+    LL_I2C_EnableIT_ERR(I2C1);
+    // Activate DMA1 interrupts
+    LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_0);
+    LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_0);
+    LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_1);
+    LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_1);
+
+    /* (1) Enable I2C1 **********************************************************/
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_0);
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_1);
+    LL_I2C_Disable(I2C1);
+    LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, 1);
+    LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_1, (uint32_t)&regaddr,(uint32_t)LL_I2C_DMA_GetRegAddr(I2C1), LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_1));
+    LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_0, size_of_rx_data);
+    LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_0, (uint32_t)LL_I2C_DMA_GetRegAddr(I2C1), (uint32_t)rx_data, LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_0));
+
+    LL_I2C_Enable(I2C1);
+    deviceAddress = (devaddr << 1) | I2C_MASTER_WRITE;
+    /* (1) Enable DMA transfer **************************************************/
+    LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_1);
+    /* (2) Prepare acknowledge for Master data reception ************************/
+    LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);
+
+    /* (3) Initiate a Start condition to the Slave device ***********************/
+    /* Master Generate Start condition */
+    LL_I2C_GenerateStartCondition(I2C1);
+
+    uint16_t tout = timeout;
+    /* Loop until DMA transfer complete event */
+    while (!i2c_dma_tx_cmplt)
+    {
+       if (LL_SYSTICK_IsActiveCounterFlag() && tout-- == 0)
+            return false;
+    }
+    i2c_dma_tx_cmplt = false;
+
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_1);
+    LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_0);
+    /* (8) Loop until end of master transfer completed (TXE flag raised) then generate STOP
+     * condition -8.1- Data consistency are checking into Slave process. */
+
+////////////////////////////////////////////////////////////////////////////////////////////
+    deviceAddress = (devaddr << 1) | I2C_MASTER_READ;
+    ubMasterXferDirection = LL_I2C_DIRECTION_READ;
+
+    /* (6) Prepare acknowledge for Master data reception ************************/
+    LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);
+
+    /* (7) Initiate a ReStart condition to the Slave device *********************/
+    /* Master Generate ReStart condition */
+    LL_I2C_GenerateStartCondition(I2C1);
+
+      /* (8) Loop until end of transfer completed (DMA TC raised) *****************/
+    tout = timeout;
+    /* Loop until DMA transfer complete event */
+    while (!i2c_dma_rx_cmplt)
+    {
+       if (LL_SYSTICK_IsActiveCounterFlag() && tout-- == 0)
+            return false;
+    }
+    i2c_dma_rx_cmplt = false;
+    /* (9) Generate a Stop condition to the Slave device ************************/
+    LL_I2C_GenerateStopCondition(I2C1);
+
+    /* (10) Clear pending flags, Data Command Code are checking into Slave process */
+    /* Disable Last DMA bit */
+    LL_I2C_DisableLastDMA(I2C1);
+
+    /* Disable acknowledge for Master next data reception */
+    LL_I2C_AcknowledgeNextData(I2C2, LL_I2C_NACK);
+
+    /* End of Master Process */
+    LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_0);
+    // Deactivate I2C1 interrupts
+    LL_I2C_DisableIT_EVT(I2C1);
+    LL_I2C_DisableIT_ERR(I2C1);
+    LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_0);
+    LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_0);
+    LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_1);
+    LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_1);
+    return true;
+}
+
+void transfer_complete_callback(void)
+{
+    i2c_dma_tx_cmplt = true;
+}
+
+void transfer_error_callback(void)
+{
+    NVIC_DisableIRQ(DMA1_Stream1_IRQn);
+}
+
+void receive_complete_callback(void)
+{
+    i2c_dma_rx_cmplt = true;
+}
+void receive_error_callback(void)
+{
+    NVIC_DisableIRQ(DMA1_Stream0_IRQn);
+}
+
+/**
+ * @brief  Function called in case of error detected in I2C IT Handler
+ * @param  None
+ * @retval None
+ */
+void Error_Callback(void)
+{
+    /* Disable I2C1_EV_IRQn */
+    NVIC_DisableIRQ(I2C1_EV_IRQn);
+
+    /* Disable I2C1_ER_IRQn */
+    NVIC_DisableIRQ(I2C1_ER_IRQn);
+}
 /** Default constructor.
  */
 I2Cdev::I2Cdev() {
@@ -165,52 +370,40 @@ int8_t I2Cdev::readByte(uint8_t devAddr, uint8_t regAddr, uint8_t *data, uint16_
  * @param timeout Optional read timeout in milliseconds (0 to disable, leave off to use default class value in I2Cdev::readTimeout)
  * @return I2C_TransferReturn_TypeDef http://downloads.energymicro.com/documentation/doxygen/group__I2C.html
  */
-int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout, void *wireObj) {
-	SelectRegister(devAddr, regAddr);
-
-    LL_I2C_GenerateStartCondition(i2cdev);
-    while (!LL_I2C_IsActiveFlag_SB(i2cdev))
+int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout, void *wireObj) 
+{
+    if (receive_i2c(devAddr, regAddr, data, length, timeout))
     {
-    };
-    (void)i2cdev->SR1;
-    LL_I2C_TransmitData8(i2cdev, (devAddr << 1) | I2C_MASTER_READ);
-    while (!LL_I2C_IsActiveFlag_ADDR(i2cdev))
-    {
-    };
-    LL_I2C_ClearFlag_ADDR(i2cdev);
-    for (uint8_t i = 0; i < length; i++)
-    {
-        if (i < (length - 1))
-        {
-            while (!LL_I2C_IsActiveFlag_RXNE(i2cdev))
-            {
-            };
-            data[i] = LL_I2C_ReceiveData8(i2cdev);
-        }
-        else
-        {
-            LL_I2C_AcknowledgeNextData(i2cdev, LL_I2C_NACK);
-            LL_I2C_GenerateStopCondition(i2cdev);
-            while (!LL_I2C_IsActiveFlag_RXNE(i2cdev))
-            {
-            };
-            data[i] = LL_I2C_ReceiveData8(i2cdev);
-        }
+        return length;
     }
+    else
+    {
+        return 0;
+    }
+}
 
-    // cmd = i2c_cmd_link_create();
-	// ESP_ERROR_CHECK(i2c_master_start(cmd));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_READ, 1));
+/** Write single byte to an 8-bit device register.
+ * @param devAddr I2C slave device address
+ * @param regAddr Register address to write to
+ * @param data New byte value to write
+ * @return Status of operation (true = success)
+ */
+bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void* wireObj)
+{
+    return transfer_i2c(devAddr, regAddr, &data, 1, 10);
+}
 
-	// if(length>1)
-	// 	ESP_ERROR_CHECK(i2c_master_read(cmd, data, length-1, I2C_MASTER_ACK));
-
-	// ESP_ERROR_CHECK(i2c_master_read_byte(cmd, data+length-1, I2C_MASTER_NACK));
-
-	// ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	// ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	// i2c_cmd_link_delete(cmd);
-	return length;
+/** Write single byte to an 8-bit device register.
+ * @param devAddr I2C slave device address
+ * @param regAddr Register address to write to
+ * @param length Number of bytes to write
+ * @param data Array of bytes to write
+ * @return Status of operation (true = success)
+ */
+bool I2Cdev::writeBytes(
+    uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t* data, void* wireObj)
+{
+    return transfer_i2c(devAddr, regAddr, data, length, 10);
 }
 
 /** Write single word to a 16-bit device register.
@@ -219,7 +412,8 @@ int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8
  * @param data New word value to write
  * @return Status of operation (true = success)
  */
-bool I2Cdev::writeWord(uint8_t devAddr, uint8_t regAddr, uint16_t data, void *wireObj){
+bool I2Cdev::writeWord(uint8_t devAddr, uint8_t regAddr, uint16_t data, void *wireObj)
+{
 	uint8_t data1[] = {(uint8_t)(data>>8), (uint8_t)(data & 0xff)};
 	writeBytes(devAddr, regAddr, 2, data1, wireObj);
 	return true;
@@ -241,36 +435,6 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
 	return true;
 }
 
-
-void I2Cdev::SelectRegister(uint8_t dev, uint8_t reg)
-{
-    // Disable Pos
-    LL_I2C_DisableBitPOS(i2cdev);
-    LL_I2C_AcknowledgeNextData(i2cdev, LL_I2C_ACK);
-    LL_I2C_GenerateStartCondition(i2cdev);
-    while (!LL_I2C_IsActiveFlag_SB(i2cdev))
-    {
-    };
-    // read state
-    (void)i2cdev->SR1;
-    LL_I2C_TransmitData8(i2cdev, (dev << 1) | I2C_MASTER_WRITE);
-    while (!LL_I2C_IsActiveFlag_ADDR(i2cdev)) 
-    {
-    };
-    LL_I2C_ClearFlag_ADDR(I2C1);
-    LL_I2C_TransmitData8(i2cdev, reg);
-    while (!LL_I2C_IsActiveFlag_TXE(i2cdev))
-    {
-    };
-    LL_I2C_GenerateStopCondition(i2cdev);
-    // cmd = i2c_cmd_link_create();
-    // ESP_ERROR_CHECK(i2c_master_start(cmd));
-    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, 1));
-    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, reg, 1));
-    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
-    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-    // i2c_cmd_link_delete(cmd);
-}
 
 /** write a single bit in an 8-bit device register.
  * @param devAddr I2C slave device address
@@ -358,100 +522,6 @@ bool I2Cdev::writeBitsW(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint
         return false;
     }
 }
-
-/** Write single byte to an 8-bit device register.
- * @param devAddr I2C slave device address
- * @param regAddr Register address to write to
- * @param data New byte value to write
- * @return Status of operation (true = success)
- */
-bool I2Cdev::writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data, void *wireObj) 
-{
-    // Disable Pos
-    LL_I2C_DisableBitPOS(i2cdev);
-    LL_I2C_AcknowledgeNextData(i2cdev, LL_I2C_ACK);
-    LL_I2C_GenerateStartCondition(i2cdev);
-    while (!LL_I2C_IsActiveFlag_SB(i2cdev))
-    {
-    };
-    // read state
-    (void)i2cdev->SR1;
-    LL_I2C_TransmitData8(i2cdev, (devAddr << 1) | I2C_MASTER_WRITE);
-    while (!LL_I2C_IsActiveFlag_ADDR(i2cdev))
-    {
-    };
-    LL_I2C_ClearFlag_ADDR(i2cdev);
-    LL_I2C_TransmitData8(i2cdev, regAddr);
-    while (!LL_I2C_IsActiveFlag_TXE(i2cdev))
-    {
-    };
-    LL_I2C_TransmitData8(i2cdev, data);
-    while (!LL_I2C_IsActiveFlag_TXE(i2cdev))
-    {
-    };
-    LL_I2C_GenerateStopCondition(i2cdev);
-    // cmd = i2c_cmd_link_create();
-    // ESP_ERROR_CHECK(i2c_master_start(cmd));
-    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
-    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
-    // ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data, 1));
-    // ESP_ERROR_CHECK(i2c_master_stop(cmd));
-    // ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
-    // i2c_cmd_link_delete(cmd);
-
-    return true;
-}
-
-/** Write single byte to an 8-bit device register.
- * @param devAddr I2C slave device address
- * @param regAddr Register address to write to
- * @param length Number of bytes to write
- * @param data Array of bytes to write
- * @return Status of operation (true = success)
- */
-bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, void *wireObj)
-{
-    // Disable Pos
-    LL_I2C_DisableBitPOS(i2cdev);
-    LL_I2C_AcknowledgeNextData(i2cdev, LL_I2C_ACK);
-    LL_I2C_GenerateStartCondition(i2cdev);
-    while (!LL_I2C_IsActiveFlag_SB(i2cdev))
-    {
-    };
-    // read state
-    (void)i2cdev->SR1;
-    LL_I2C_TransmitData8(i2cdev, (devAddr << 1) | I2C_MASTER_WRITE);
-    while (!LL_I2C_IsActiveFlag_ADDR(i2cdev))
-    {
-    };
-    LL_I2C_ClearFlag_ADDR(i2cdev);
-    LL_I2C_TransmitData8(i2cdev, (uint8_t)regAddr);
-    while (!LL_I2C_IsActiveFlag_TXE(i2cdev))
-    {
-    };
-    for (uint8_t i = 0; i < length; i++)
-    {
-        LL_I2C_TransmitData8(i2cdev, data[i]);
-        while (!LL_I2C_IsActiveFlag_TXE(i2cdev))
-        {
-        };
-    }
-    LL_I2C_GenerateStopCondition(i2cdev);
-
-    // i2c_cmd_handle_t cmd;
-
-	// cmd = i2c_cmd_link_create();
-	// ESP_ERROR_CHECK(i2c_master_start(cmd));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (devAddr << 1) | I2C_MASTER_WRITE, 1));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, regAddr, 1));
-	// ESP_ERROR_CHECK(i2c_master_write(cmd, data, length-1, 0));
-	// ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data[length-1], 1));
-	// ESP_ERROR_CHECK(i2c_master_stop(cmd));
-	// ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM, cmd, 1000/portTICK_PERIOD_MS));
-	// i2c_cmd_link_delete(cmd);
-	return true;
-}
-
 
 /** Read single word from a 16-bit device register.
  * @param devAddr I2C slave device address

@@ -207,7 +207,7 @@ void mpu6050(){
 			// Send UDP packet
 			float _roll = roll-initial_roll;
 			float _pitch = pitch-initial_pitch;
-			sprintf(bufstr, "roll:%f pitch=%f", _roll, _pitch);
+			sprintf(bufstr, "roll:%f pitch=%f \n", _roll, _pitch);
             CDC_Transmit_FS((uint8_t*)bufstr, strlen(bufstr)); // 
 			SWO_PrintDefaultN(bufstr,strlen(bufstr));
 
@@ -216,12 +216,12 @@ void mpu6050(){
 			pose.pitch = _pitch;
 			pose.yaw = 0.0;
 
-			HAL_Delay(1000);
+			HAL_Delay(10);
 			elasped = 0;
 		}
 	
 		elasped++;
-		HAL_Delay(1000);
+		HAL_Delay(10);
 	} // end while
 
 }

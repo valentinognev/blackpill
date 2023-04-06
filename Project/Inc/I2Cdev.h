@@ -38,10 +38,11 @@ THE SOFTWARE.
 //#include <driver/i2c.h>
 #include "main.h"
 
+
 #define I2CDEV_DEFAULT_READ_TIMEOUT 1000
 
 class I2Cdev {
-    public:
+public:
         I2Cdev();
 
         static void initialize();
@@ -67,9 +68,6 @@ class I2Cdev {
 
         static uint16_t readTimeout;
 
-    //private:
-        static void SelectRegister(uint8_t dev, uint8_t reg);
-        //static I2C_TransferReturn_TypeDef transfer(I2C_TransferSeq_TypeDef *seq, uint16_t timeout=I2Cdev::readTimeout);
-};
+ };
 
 #endif /* _I2CDEV_H_ */

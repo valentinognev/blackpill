@@ -19,7 +19,10 @@
 		{
 			"label": "Build Clean STM",
 			"type": "process",
-			"command": "make clean; make",
+			"command": "make",
+			"args": [
+				"clean"
+			],
 			"options": {
 				"cwd": "${workspaceRoot}"
 			},
@@ -34,7 +37,10 @@
 		{
 			"label": "Flash STM",
 			"type": "process",
-			"command": "make flash-ocd",
+			"command": "make",
+			"args": [
+				"flash-ocd"
+			],
 			"options": {
 				"cwd": "${workspaceRoot}"
 			},
@@ -44,6 +50,9 @@
 			},
 			"problemMatcher": [
 				"$gcc"
+			],
+			"dependsOn": [
+				"Build STM"
 			]
 		}
 	]

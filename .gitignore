@@ -330,3 +330,11 @@ build/CMakeFiles/blackpill.dir/USB_DEVICE/App/usb_device.c.obj
 build/CMakeFiles/blackpill.dir/USB_DEVICE/App/usbd_cdc_if.c.obj
 build/CMakeFiles/blackpill.dir/USB_DEVICE/App/usbd_desc.c.obj
 build/CMakeFiles/blackpill.dir/USB_DEVICE/Target/usbd_conf.c.obj
+build/.cmake/api/v1/reply/cache-v2-43dfefe3bf98c564263b.json
+build/.cmake/api/v1/reply/codemodel-v2-7d4235af9f2a858cd00b.json
+build/.cmake/api/v1/reply/index-2023-04-05T22-12-20-0760.json
+build/.cmake/api/v1/reply/target-firmware-Debug-e5cade53e0f26f69e5c6.json
+build/CMakeFiles/blackpill.dir/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c.obj
+build/Testing/Temporary/LastTest.log
+build/.cmake/api/v1/reply/index-2023-04-06T23-35-50-0448.json
+build/CMakeFiles/blackpill.dir/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usart.c.obj

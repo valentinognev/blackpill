@@ -8,7 +8,7 @@
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
-            "preLaunchTask": "Build STM",
+            //"preLaunchTask": "Flash STM",
             "device": "stm32f411xe.s",
             "configFiles": [
                 "openocd.cfg"
@@ -23,12 +23,12 @@
             "request": "attach",
             "type": "cortex-debug",
             "servertype": "openocd",
-            "preLaunchTask": "Build STM",
+            "preLaunchTask": "Flash STM",
             "device": "stm32f411xe.s",
             "configFiles": [
                 "openocd.cfg"
             ],
             "svdFile": "STM32F411.svd"
-        }
+        },
     ]
 }
